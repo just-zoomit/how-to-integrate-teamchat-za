@@ -29,10 +29,1162 @@
                   feedback-link="https://devforum.zoom.us/c/zoom-apps">
     
       <google-codelab-step label="Before you begin" duration="0">
-        <p>⚠️ <strong>Warning:</strong> This feature requires a paid plan and manifest beta program access.</p>
+        <p>⚠️ <strong>Warning:</strong> This guide assumes you&#39;re familiar building within the Zoom Workspace. You can start here or go back to the beginning of the full guide if you&#39;re new to Zoom App development.</p>
 <p>💡 <strong>Tip:</strong> If you don&#39;t have a paid workspace for development, you can join the <a href="https://api.slack.com/developer-program" target="_blank">Developer Program</a> and provision a sandbox with access to all Zoom Developer platform features for free.</p>
-<h2 is-upgraded>Introduction</h2>
-<p>//TO-DO //Next</p>
+<h2 is-upgraded>Prerequisites</h2>
+<ul>
+<li>A Zoom Developer Account</li>
+<li>A Supabase Account</li>
+<li>A Ngrok Account</li>
+<li>Knowledge of Next.js and JavaScript</li>
+</ul>
+<h2 is-upgraded>📚 What You&#39;ll Learn</h2>
+<p>✓ How to get Zoom Rest API token ✓ How to send teamchat message to Zoom Client ✓ How to customized messages</p>
+<h2 is-upgraded>🧰 What You&#39;ll Need</h2>
+<ul>
+<li>Git</li>
+<li>Node.js</li>
+<li>Browser</li>
+<li>Code editor and terminal</li>
+<li>Zoom Developer Account for the creation and management of your Zoom App SDK</li>
+</ul>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Introduction" duration="0">
+        <p>In this guide, you&#39;ll integrate the Zoom Team Chat API into a Next.js app that uses Supabase for data storage.</p>
+<p>By the end, you&#39;ll have:</p>
+<ul>
+<li>A working Zoom Team Chat integration</li>
+<li>A foundation for sending and customizing messages</li>
+<li>A server action function ready to be reused across more advanced messaging features</li>
+</ul>
+<h2 is-upgraded>🛠️ Project Setup</h2>
+<p>If you&#39;re starting from this step, let&#39;s first set up your development environment</p>
+<ol type="1">
+<li>Clone the project and switch to the correct branch:</li>
+</ol>
+<pre><code language="language-bash" class="language-bash">git clone https://github.com/zoom/task-manager-sample.git
+cd task-manager-sample
+git checkout step-2-chatbot-api
+
+</code></pre>
+<ol type="1" start="2">
+<li>Install dependencies and start the app:</li>
+</ol>
+<pre><code language="language-bash" class="language-bash">npm install
+npm run dev
+
+</code></pre>
+<p>Now, you have a Task Manager application built with Next.js that integrates with Supabase and Zoom Chatbot APIs..</p>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Creating Zoom Team Chat Server Actions" duration="0">
+        <p>This section covers how to create server actions to interact with the Zoom Team Chat API.</p>
+<h2 is-upgraded>Step 1: Create the Team Chat API Helper</h2>
+<p>Create a new file: <code>app/lib/teamchat.ts</code></p>
+<p>Paste in the following starter code:</p>
+<pre><code language="language-javascript" class="language-javascript">&#39;use server&#39;;
+
+const ZOOM_API_BASE_URL = &#39;https://api.zoom.us/v2&#39;;
+
+/**
+ * List Get user&#39;s contacts
+ */
+
+export async function getuserContacts(accessToken: string) {
+  const response = await fetch(`${ZOOM_API_BASE_URL}/chat/users/me/contacts?type=company`, {
+    method: &#39;GET&#39;,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    console.error(&#39;Error fetching User Contacts:&#39;, response.statusText);
+    throw new Error(`Failed to fetch User Contacts: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * List Chat Channels
+ * Note: Not Used in this example, yet
+ */
+
+export async function getuserChannels(accessToken: string) {
+  const response = await fetch(`${ZOOM_API_BASE_URL}/chat/users/me/channels`, {
+    method: &#39;GET&#39;,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    console.error(&#39;Error fetching Zoom channels:&#39;, response.statusText);
+    throw new Error(`Failed to fetch channels: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+
+  console.log(&#39;Channels:&#39;, data.channels); // Log the channels array
+ 
+  return data.channels; // Return the channels array directly
+}
+
+
+
+    /**
+   * Get Zoom Chat Channel Messages
+   * @param channelId - The unique identifier of the Zoom chat channel
+   * @param accessToken - OAuth access token for API authorization
+   * @returns The API response data
+   * @throws Error if the API request fails 
+   * @scopes chat_channel:read
+   * Note: Not Used in this example yet
+   */ 
+  
+    export async function getChatChannelMessages(channelId: string, accessToken: string) {
+      const response = await fetch(`${ZOOM_API_BASE_URL}/chat/channels/${channelId}/messages`, {
+        method: &#39;GET&#39;,
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+    
+      if (!response.ok) {
+        console.error(&#39;Error fetching Zoom chat messages:&#39;, response.statusText);
+        throw new Error(`Failed to fetch chat messages: ${response.statusText}`);
+      }
+    
+      return response.json();
+    }
+
+
+    export interface ZoomIMAtItem {
+      at_contact: string | number;
+      at_type: number;
+      start_position: number;
+      end_position: number;
+    }
+    
+    export interface ZoomIMRichText {
+      start_position: number;
+      end_position: number;
+      format_type: string;
+      format_attr: string;
+    }
+    
+    export interface ZoomIMInteractiveCard {
+      card_json: string;
+    }
+    
+    // This interface is your existing payload format.
+    export interface ZoomIMMessagePayload {
+      message: string;
+      to_channel?: string;
+      to_contact?: string;
+      at_items?: ZoomIMAtItem[];
+      rich_text?: ZoomIMRichText[];
+      file_ids?: string[];
+      reply_main_message_id?: string;
+      interactive_cards?: ZoomIMInteractiveCard[];
+      content?: Record&lt;string, any&gt;;
+    }
+    
+    // Define an options interface so you can pass parameters separately.
+    export interface ZoomIMMessageOptions {
+      message: string;
+      to_channel?: string;
+      to_contact?: string;
+      at_items?: ZoomIMAtItem[];
+      rich_text?: ZoomIMRichText[];
+      file_ids?: string[];
+      reply_main_message_id?: string;
+      interactive_cards?: ZoomIMInteractiveCard[];
+      content?: Record&lt;string, any&gt;;
+    }
+    
+    /**
+     * Send a Zoom IM message using dynamic options.
+     * At least one of to_channel or to_contact must be provided.
+     */
+    export async function sendZoomIMMessage(
+      accessToken: string,
+      options: ZoomIMMessageOptions
+    ): Promise&lt;any&gt; {
+      if (!options.to_channel &amp;&amp; !options.to_contact) {
+        throw new Error(&#34;Either &#39;to_channel&#39; or &#39;to_contact&#39; must be provided.&#34;);
+      }
+    
+      // Build the payload using the options provided.
+      const payload: ZoomIMMessagePayload = {
+        message: options.message,
+        to_channel: options.to_channel,
+        to_contact: options.to_contact,
+        at_items: options.at_items,
+        rich_text: options.rich_text,
+        file_ids: options.file_ids,
+        reply_main_message_id: options.reply_main_message_id,
+        interactive_cards: options.interactive_cards,
+        content: options.content,
+      };
+
+      console.log(&#34;Zoom IM Message Payload:&#34;, payload);
+    
+      const url = `${ZOOM_API_BASE_URL}/chat/users/me/messages`;
+      const response = await fetch(url, {
+        method: &#34;POST&#34;,
+        headers: {
+          &#34;Authorization&#34;: `Bearer ${accessToken}`,
+          &#34;Content-Type&#34;: &#34;application/json&#34;,
+        },
+        body: JSON.stringify(payload),
+      });
+    
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to send message: ${response.status} - ${errorText}`);
+      }
+    
+      const data = await response.json();
+      console.log(&#34;Zoom IM Message Response:&#34;, data);
+      return data;
+    }
+    
+</code></pre>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="User Contact page" duration="0">
+        <p>Create a new file:  <code>app/users-server/page.tsx</code></p>
+<p>Paste in the following starter code:</p>
+<pre><code language="language-javascript" class="language-javascript">import { getuserContacts, getuserChannels } from &#34;@/app/lib/teamchat&#34;;
+import { createServerClient } from &#34;@supabase/ssr&#34;;
+import { cookies } from &#34;next/headers&#34;;
+import { redirect } from &#34;next/navigation&#34;;
+import { Card, CardHeader, CardTitle, CardContent } from &#34;@/components/ui/card&#34;;
+
+type User = {
+  id: string;
+  member_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+};
+
+type Channels = {
+  id: number;
+  name: string;
+  type: string;
+};
+
+export default async function UsersServer() {
+  // Optionally remove the delay if not needed
+  await new Promise((resolve) =&gt; setTimeout(resolve, 2000));
+
+  // Get cookies and create the Supabase client
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () =&gt; cookieStore.getAll(),
+      },
+    }
+  );
+
+  // Fetch the Supabase session securely
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !sessionData?.session) {
+    console.error(&#34;Session error:&#34;, sessionError);
+    redirect(&#34;/login&#34;);
+  }
+
+  const accessToken = sessionData.session.provider_token ?? &#34;&#34;;
+  console.log(&#34;Access Token User Server&#34;, accessToken);
+
+  // Get the users list
+  const response = await getuserContacts(accessToken);
+  const users: User[] = response.contacts;
+  console.log(&#34;Users:&#34;, users);
+
+  // Upsert the Zoom user data into the zoom_users table
+  const { error: upsertError } = await supabase
+    .from(&#34;zoom_users&#34;)
+    .upsert(
+      users.map((user) =&gt; ({
+        id: user.id,
+        member_id: user.member_id,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+      }))
+    );
+  if (upsertError) {
+    console.error(&#34;Upsert error:&#34;, upsertError);
+  }
+
+  // Get the channels list
+  const channelResponse = await getuserChannels(accessToken);
+  const channels: Channels[] = channelResponse;
+
+  return (
+    &lt;div className=&#34;flex&#34;&gt;
+      {/* Left Column - Users */}
+      &lt;div className=&#34;w-1/2 border-r p-4&#34;&gt;
+        &lt;h2 className=&#34;text-xl font-bold mb-4&#34;&gt;Users&lt;/h2&gt;
+        &lt;div className=&#34;space-y-4&#34;&gt;
+          {users.map((user) =&gt; (
+            &lt;Card key={user.id} className=&#34;shadow-md rounded-lg&#34;&gt;
+              &lt;CardHeader&gt;
+                &lt;CardTitle&gt;
+                  {user.first_name} {user.last_name}
+                &lt;/CardTitle&gt;
+              &lt;/CardHeader&gt;
+              &lt;CardContent&gt;
+                &lt;p&gt;Email: {user.email}&lt;/p&gt;
+                &lt;p&gt;Phone: {user.phone}&lt;/p&gt;
+              &lt;/CardContent&gt;
+            &lt;/Card&gt;
+          ))}
+        &lt;/div&gt;
+      &lt;/div&gt;
+
+      {/* Right Column - Channels */}
+      &lt;div className=&#34;w-1/2 p-4&#34;&gt;
+        &lt;h2 className=&#34;text-xl font-bold mb-4&#34;&gt;User Channels&lt;/h2&gt;
+        &lt;div className=&#34;space-y-4&#34;&gt;
+          {channels.map((channel) =&gt; (
+            &lt;Card key={channel.id} className=&#34;shadow-md rounded-lg&#34;&gt;
+              &lt;CardHeader&gt;
+                &lt;CardTitle&gt;{channel.name}&lt;/CardTitle&gt;
+              &lt;/CardHeader&gt;
+              &lt;CardContent&gt;
+                &lt;p&gt;Type: {channel.type}&lt;/p&gt;
+              &lt;/CardContent&gt;
+            &lt;/Card&gt;
+          ))}
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  );
+}
+</code></pre>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Edit Task Component" duration="0">
+        <p>Create a new file: <code>components/taskmanger/edit-task.tsx</code></p>
+<p>Paste in the following starter code:</p>
+<pre><code language="language-javascript" class="language-javascript">&#39;use client&#39;;
+
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from &#34;@/components/ui/dialog&#34;;
+import { Input } from &#34;@/components/ui/input&#34;;
+import { Button } from &#34;@/components/ui/button&#34;;
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from &#34;@/components/ui/select&#34;;
+import { useForm, Controller } from &#34;react-hook-form&#34;;
+import { useEffect, useState } from &#34;react&#34;;
+import { createClient } from &#34;@/utils/supabase/client&#34;;
+import { useRouter, useParams } from &#34;next/navigation&#34;;
+
+import type { Tables } from &#34;@/lib/types&#34;;
+import { AssigneeSelector } from &#34;@/components/taskmanger/assignee-selector&#34;;
+
+import { sendZoomIMMessage, ZoomIMMessagePayload  } from &#34;@/app/lib/teamchat&#34;;
+import { redirect } from &#34;next/navigation&#34;;
+
+
+type Task = Tables&lt;&#39;tasks&#39;&gt;;
+
+const LISTS = [&#34;todo&#34;, &#34;in progress&#34;, &#34;completed&#34;];
+const PRIORITIES = [&#34;high&#34;, &#34;medium&#34;, &#34;normal&#34;, &#34;low&#34;];
+
+type ZoomUser = {
+  id: string;
+  first_name: string;
+  last_name: string;
+};
+
+const EditTask = ({
+  open,
+  setOpen,
+  task,
+}: {
+  open: boolean;
+  setOpen: (open: boolean) =&gt; void;
+  task: Task;
+}) =&gt; {
+
+  // Initialize react-hook-form
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    control,
+    formState: { errors },
+  } = useForm&lt;{
+    title: string;
+    date: string;
+    description: string;
+    additionalTask: string;
+    assigned_users: { value: string; label: string }[];
+  }&gt;({
+    defaultValues: {
+      title: &#34;&#34;,
+      date: &#34;&#34;,
+      description: &#34;&#34;,
+      additionalTask: &#34;&#34;,
+      assigned_users: [],
+    },
+  });
+
+
+  const [priority, setPriority] = useState&lt;string&gt;(task?.priority.toLowerCase());
+  const [stage, setStage] = useState&lt;string&gt;(task?.stage.toLowerCase());
+  const [availableUsers, setAvailableUsers] = useState&lt;ZoomUser[]&gt;([]);
+
+  const router = useRouter();
+  const params = useParams();
+  const projectId = Number(params.projectId);
+
+  // Pre-populate the form values based on the task data.
+  useEffect(() =&gt; {
+    setValue(&#34;title&#34;, task?.title);
+    setValue(&#34;description&#34;, task?.description || &#34;&#34;);
+    setValue(&#34;date&#34;, task?.due_date ? task.due_date.substring(0, 10) : &#34;&#34;);
+    setValue(&#34;additionalTask&#34;, &#34;&#34;);
+    if (task.assigned_users &amp;&amp; Array.isArray(task.assigned_users)) {
+      // Map existing assigned users to the { value, label } format.
+      const assignedOptions = task.assigned_users.map((u: any) =&gt; ({
+        value: u.id,
+        label: `${u.first_name} ${u.last_name}`,
+      }));
+      setValue(&#34;assigned_users&#34;, assignedOptions);
+    }
+  }, [task, setValue]);
+
+  // Fetch available users from the zoom_users table on mount.
+  useEffect(() =&gt; {
+    async function fetchAvailableUsers() {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from(&#34;zoom_users&#34;)
+        .select(&#34;id, first_name, last_name&#34;);
+      if (error) {
+        console.error(&#34;Error fetching zoom users:&#34;, error);
+      } else if (data) {
+        setAvailableUsers(data);
+      }
+    }
+    fetchAvailableUsers();
+  }, []);
+
+  const submitHandler = async (data: {
+    title: string;
+    date: string;
+    description: string;
+    additionalTask: string;
+    assigned_users: { value: string; label: string }[];
+  }) =&gt; {
+    try {
+      // Initialize Supabase client.
+      const supabase = createClient();
+  
+      // Get the current authenticated session and access token.
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionData?.session) {
+        console.error(&#34;Session error:&#34;, sessionError);
+        redirect(&#34;/login&#34;);
+        return;
+      }
+      const accessToken = sessionData.session.provider_token ?? &#34;&#34;;
+      console.log(&#34;Access Token:&#34;, accessToken);
+  
+      // Map form assignee values to full user objects.
+      const selectedUsers = availableUsers.filter((u) =&gt;
+        data.assigned_users.some((option) =&gt; option.value === u.id)
+      );
+      console.log(&#34;Selected Users:&#34;, selectedUsers.map((u) =&gt; u.id));
+  
+      // Determine which users are new (i.e. not already assigned).
+      const previousAssignedUserIDs = task.assigned_users?.map((u: any) =&gt; u.id) || [];
+      const newAssignedUsers = selectedUsers.filter((u) =&gt; !previousAssignedUserIDs.includes(u.id));
+  
+      // Build the updated task object.
+      const updatedTask: Partial&lt;Task&gt; = {
+        title: data.title,
+        due_date: new Date(data.date).toISOString(),
+        description: data.description,
+        priority,
+        stage,
+        assigned_users: selectedUsers,
+      };
+  
+      // Update the main task record.
+      const { error: updateError } = await supabase
+        .from(&#34;tasks&#34;)
+        .update(updatedTask)
+        .eq(&#34;id&#34;, task.id);
+  
+      if (updateError) {
+        console.error(&#34;Error updating task:&#34;, updateError);
+        return;
+      }
+      console.log(&#34;Task updated:&#34;, updatedTask);
+  
+      // Insert an additional subtask if provided.
+      if (data.additionalTask) {
+        const newSubtask = {
+          task_id: task.id,
+          title: data.additionalTask,
+        };
+  
+        const { error: subtaskError } = await supabase.from(&#34;sub_tasks&#34;).insert(newSubtask);
+        if (subtaskError) {
+          console.error(&#34;Error inserting subtask:&#34;, subtaskError);
+        } else {
+          console.log(&#34;Subtask added:&#34;, newSubtask);
+        }
+      }
+  
+      // For each newly added assignee, send a Zoom IM message.
+      for (const newUser of newAssignedUsers) {
+        const messageText = `You have been assigned to the task: &#34;${data.title}&#34;. Please check your task list for details.`;
+
+        const payload: ZoomIMMessagePayload = {
+          message: messageText,
+          rich_text: [
+            {
+              start_position: messageText.indexOf(&#34;Please check your task list for details.&#34;),
+              end_position: messageText.length, // assuming the rest of the message should be bold
+              format_type: &#34;Bold&#34;,
+              format_attr: &#34;&#34;,
+            },
+          ],
+          to_contact: newUser.id, 
+          // Optionally, add extra properties such as interactive cards:
+          interactive_cards: [
+            {
+              card_json: JSON.stringify({
+                content: {
+                  settings: { form: true },
+                  head: {
+                    text: &#34;New Task Assignment&#34;,
+                    sub_head: { text: &#34;Please review the task details&#34; },
+                  },
+                  body: [
+                    {
+                      type: &#34;attachments&#34;,
+                      resource_url: &#34;https://yourapp.com/task-details&#34;,
+                      img_url:
+                        &#34;https://d24cgw3uvb9a9h.cloudfront.net/static/93516/image/new/ZoomLogo.png&#34;,
+                      information: {
+                        title: { text: data.title },
+                        description: { text: data.description },
+                      },
+                    },
+                    {
+                      type: &#34;actions&#34;,
+                      items: [
+                        { text: &#34;View Task&#34;, value: &#34;view&#34;, style: &#34;Primary&#34; },
+                        { text: &#34;Dismiss&#34;, value: &#34;dismiss&#34;, style: &#34;Default&#34; },
+                      ],
+                    },
+                  ],
+                },
+              }),
+            },
+          ],
+        };
+  
+        try {
+          await sendZoomIMMessage(accessToken, payload);
+          console.log(`Notification sent to ${newUser.first_name} ${newUser.last_name}`);
+        } catch (err) {
+          console.error(`Failed to notify ${newUser.first_name} ${newUser.last_name}:`, err);
+        }
+      }
+  
+      // Close the dialog and refresh the page.
+      setOpen(false);
+      router.refresh();
+    } catch (err) {
+      console.error(&#34;Error in submitHandler:&#34;, err);
+    }
+  };
+
+  return (
+    &lt;Dialog open={open} onOpenChange={setOpen}&gt;
+      &lt;DialogContent className=&#34;sm:max-w-md&#34;&gt;
+        &lt;form onSubmit={handleSubmit(submitHandler)}&gt;
+          &lt;DialogHeader&gt;
+            &lt;DialogTitle&gt;Edit Task&lt;/DialogTitle&gt;
+            &lt;DialogDescription&gt;Update the details of the task.&lt;/DialogDescription&gt;
+          &lt;/DialogHeader&gt;
+
+          &lt;div className=&#34;flex flex-col gap-4 mt-4&#34;&gt;
+            {/* Task Title */}
+            &lt;div&gt;
+              &lt;label htmlFor=&#34;title&#34; className=&#34;block text-sm font-medium text-gray-700&#34;&gt;
+                Task Title
+              &lt;/label&gt;
+              &lt;Input
+                id=&#34;title&#34;
+                placeholder=&#34;Enter task title&#34;
+                {...register(&#34;title&#34;, { required: &#34;Title is required&#34; })}
+              /&gt;
+              {errors.title &amp;&amp; &lt;p className=&#34;text-red-500 text-sm&#34;&gt;{errors.title.message}&lt;/p&gt;}
+            &lt;/div&gt;
+
+            {/* Task Description */}
+            &lt;div&gt;
+              &lt;label htmlFor=&#34;description&#34; className=&#34;block text-sm font-medium text-gray-700&#34;&gt;
+                Task Description
+              &lt;/label&gt;
+              &lt;textarea
+                id=&#34;description&#34;
+                placeholder=&#34;Enter task description&#34;
+                {...register(&#34;description&#34;, { required: &#34;Description is required&#34; })}
+                className=&#34;w-full border border-gray-300 dark:border-gray-600 p-2 rounded-md outline-none focus:ring-2 ring-blue-500 text-gray-900 dark:text-gray-100&#34;
+              &gt;&lt;/textarea&gt;
+              {errors.description &amp;&amp; &lt;p className=&#34;text-red-500 text-sm&#34;&gt;{errors.description.message}&lt;/p&gt;}
+            &lt;/div&gt;
+
+            {/* Additional Task (for subtask insertion) */}
+            &lt;div&gt;
+              &lt;label htmlFor=&#34;additionalTask&#34; className=&#34;block text-sm font-medium text-gray-700&#34;&gt;
+                Additional Task
+              &lt;/label&gt;
+              &lt;Input
+                id=&#34;additionalTask&#34;
+                placeholder=&#34;Enter additional task&#34;
+                {...register(&#34;additionalTask&#34;)}
+              /&gt;
+              {errors.additionalTask &amp;&amp; (
+                &lt;p className=&#34;text-red-500 text-sm&#34;&gt;{errors.additionalTask.message}&lt;/p&gt;
+              )}
+            &lt;/div&gt;
+
+            {/* Assignee Selection */}
+            &lt;div&gt;
+              &lt;label htmlFor=&#34;assigned_users&#34; className=&#34;block text-sm font-medium text-gray-700&#34;&gt;
+                Assign Task (Select one or more)
+              &lt;/label&gt;
+              &lt;Controller
+                control={control}
+                name=&#34;assigned_users&#34;
+                rules=&#123;&#123; required: &#34;Please assign at least one user&#34; }}
+                render={({ field: { onChange, value } }) =&gt; (
+                  &lt;AssigneeSelector
+                    options={availableUsers.map((u) =&gt; ({
+                      value: u.id,
+                      label: `${u.first_name} ${u.last_name}`,
+                    }))}
+                    value={value || []}
+                    onChange={onChange}
+                  /&gt;
+                )}
+              /&gt;
+              {errors.assigned_users &amp;&amp; (
+                &lt;p className=&#34;text-red-500 text-sm&#34;&gt;{errors.assigned_users.message}&lt;/p&gt;
+              )}
+            &lt;/div&gt;
+
+            {/* Task Stage and Date */}
+            &lt;div className=&#34;flex gap-4&#34;&gt;
+              &lt;div className=&#34;w-full&#34;&gt;
+                &lt;label htmlFor=&#34;stage&#34; className=&#34;block text-sm font-medium text-gray-700&#34;&gt;
+                  Task Stage
+                &lt;/label&gt;
+                &lt;Select onValueChange={setStage} defaultValue={stage}&gt;
+                  &lt;SelectTrigger&gt;
+                    &lt;SelectValue placeholder=&#34;Select stage&#34; /&gt;
+                  &lt;/SelectTrigger&gt;
+                  &lt;SelectContent&gt;
+                    {LISTS.map((list) =&gt; (
+                      &lt;SelectItem key={list} value={list}&gt;
+                        {list.toUpperCase()}
+                      &lt;/SelectItem&gt;
+                    ))}
+                  &lt;/SelectContent&gt;
+                &lt;/Select&gt;
+              &lt;/div&gt;
+
+              &lt;div className=&#34;w-full&#34;&gt;
+                &lt;label htmlFor=&#34;date&#34; className=&#34;block text-sm font-medium text-gray-700&#34;&gt;
+                  Task Date
+                &lt;/label&gt;
+                &lt;Input
+                  type=&#34;date&#34;
+                  id=&#34;date&#34;
+                  {...register(&#34;date&#34;, { required: &#34;Date is required&#34; })}
+                /&gt;
+                {errors.date &amp;&amp; &lt;p className=&#34;text-red-500 text-sm&#34;&gt;{errors.date.message}&lt;/p&gt;}
+              &lt;/div&gt;
+            &lt;/div&gt;
+
+            {/* Priority */}
+            &lt;div className=&#34;flex gap-4&#34;&gt;
+              &lt;div className=&#34;w-full&#34;&gt;
+                &lt;label htmlFor=&#34;priority&#34; className=&#34;block text-sm font-medium text-gray-700&#34;&gt;
+                  Priority Level
+                &lt;/label&gt;
+                &lt;Select onValueChange={setPriority} defaultValue={priority}&gt;
+                  &lt;SelectTrigger&gt;
+                    &lt;SelectValue placeholder=&#34;Select priority&#34; /&gt;
+                  &lt;/SelectTrigger&gt;
+                  &lt;SelectContent&gt;
+                    {PRIORITIES.map((level) =&gt; (
+                      &lt;SelectItem key={level} value={level}&gt;
+                        {level.toUpperCase()}
+                      &lt;/SelectItem&gt;
+                    ))}
+                  &lt;/SelectContent&gt;
+                &lt;/Select&gt;
+              &lt;/div&gt;
+            &lt;/div&gt;
+
+            {/* Submit and Cancel Buttons */}
+            &lt;div className=&#34;flex justify-end gap-4 mt-4&#34;&gt;
+              &lt;Button type=&#34;submit&#34; className=&#34;bg-blue-600 px-8 text-sm font-semibold text-white hover:bg-blue-700&#34;&gt;
+                Submit
+              &lt;/Button&gt;
+              &lt;Button
+                type=&#34;button&#34;
+                variant=&#34;secondary&#34;
+                onClick={() =&gt; setOpen(false)}
+                className=&#34;px-5 text-sm font-semibold&#34;
+              &gt;
+                Cancel
+              &lt;/Button&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+        &lt;/form&gt;
+      &lt;/DialogContent&gt;
+    &lt;/Dialog&gt;
+  );
+};
+
+export default EditTask;
+
+</code></pre>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Add Activity Component" duration="0">
+        <p>Create a new file: <code>components/taskmanger/add-activity.tsx</code></p>
+<p>Paste in the following starter code:</p>
+<pre><code language="language-javascript" class="language-javascript">import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from &#34;@/components/ui/dialog&#34;;
+import { Input } from &#34;@/components/ui/input&#34;;
+import { Button } from &#34;@/components/ui/button&#34;;
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from &#34;@/components/ui/select&#34;;
+import { useState, useEffect } from &#34;react&#34;;
+import { createClient } from &#34;@/utils/supabase/client&#34;;
+import { useRouter, useParams } from &#34;next/navigation&#34;;
+
+import { useForm, Controller } from &#34;react-hook-form&#34;;
+import { AssigneeSelector } from &#34;@/components/taskmanger/assignee-selector&#34;;
+
+import { sendZoomIMMessage, ZoomIMMessagePayload  } from &#34;@/app/lib/teamchat&#34;;
+import { redirect } from &#34;next/navigation&#34;;
+
+import type { Tables } from &#34;@/lib/types&#34;;
+type Task = Tables&lt;&#39;tasks&#39;&gt;;
+
+const LISTS = [&#34;todo&#34;, &#34;in progress&#34;, &#34;completed&#34;];
+const PRIORITIES = [&#34;high&#34;, &#34;medium&#34;, &#34;low&#34;];
+
+type ZoomUser = {
+  id: string;
+  first_name: string;
+  last_name: string;
+};
+
+const AddActivity = ({
+  open,
+  setOpen,
+}: {
+  open: boolean;
+  setOpen: (open: boolean) =&gt; void;
+}) =&gt; {
+
+  // Initialize the form with react-hook-form
+const {
+    register,
+    handleSubmit,
+    control,
+    reset,
+    formState: { errors },
+  } = useForm&lt;{
+    title: string;
+    date: string;
+    description: string;
+    assigned_users: { value: string; label: string }[];
+  }&gt;({
+    defaultValues: {
+      title: &#34;&#34;,
+      date: &#34;&#34;,
+      description: &#34;&#34;,
+      assigned_users: [],
+    },
+  });
+
+  const [priority, setPriority] = useState(PRIORITIES[1]);
+  const [stage, setStage] = useState(LISTS[0]);
+  const [availableUsers, setAvailableUsers] = useState&lt;ZoomUser[]&gt;([]);
+
+  const router = useRouter();
+  const params = useParams();
+  const projectId = Number(params.projectId);
+
+  // Fetch available users from zoom_users table on mount.
+  useEffect(() =&gt; {
+    async function fetchAvailableUsers() {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from(&#34;zoom_users&#34;)
+        .select(&#34;id, first_name, last_name&#34;);
+      if (error) {
+        console.error(&#34;Error fetching zoom users:&#34;, error);
+      } else if (data) {
+        setAvailableUsers(data);
+      }
+    }
+    fetchAvailableUsers();
+  }, []);
+
+  const submitHandler = async (data: {
+    title: string;
+    date: string;
+    description: string;
+    assigned_users: { value: string; label: string }[];
+  }) =&gt; {
+    try {
+      // Initialize Supabase client.
+      const supabase = createClient();
+  
+      // Retrieve the current user and session.
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+  
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionData?.session) {
+        console.error(&#34;Session error:&#34;, sessionError);
+        redirect(&#34;/login&#34;);
+        return; // Early return in case of session error.
+      }
+  
+      const accessToken = sessionData.session.provider_token ?? &#34;&#34;;
+      console.log(&#34;Access Token:&#34;, accessToken);
+  
+      // Map assigned user options (from form) to full user objects from availableUsers.
+      const selectedUsers = availableUsers.filter((u) =&gt;
+        data.assigned_users.some((option) =&gt; option.value === u.id)
+      );
+      console.log(&#34;Selected Users:&#34;, selectedUsers.map((u) =&gt; u.id));
+  
+      // Build the new task object.
+      const newTask: Partial&lt;Task&gt; = {
+        title: data.title,
+        completed: false,
+        project_id: projectId,
+        user_id: user?.id,
+        due_date: new Date(data.date).toISOString(),
+        priority, // state variable from the component
+        stage, // state variable from the component
+        description: data.description,
+        assigned_users: selectedUsers,
+      };
+  
+      // Insert the new task.
+      const { error: insertError } = await supabase.from(&#34;tasks&#34;).insert(newTask);
+      if (insertError) {
+        console.error(&#34;Error adding task:&#34;, insertError);
+        return;
+      }
+      console.log(&#34;Task Added:&#34;, newTask);
+  
+      // Build Zoom message payload.
+      const message = selectedUsers
+        .map((u) =&gt; `Special delivery for ${u.first_name} ${u.last_name} 📝!`) // Match at_contact value to hyperlink to email
+        .join(&#34;, &#34;);
+      const at_items = selectedUsers.map((u) =&gt; ({
+        at_contact: &#39;max.test.zoom@gmail.com&#39;,
+        at_type: 1,
+        start_position: 15,
+        end_position: 20,
+      }));
+      const to_contact = selectedUsers.map((u) =&gt; u.id).join(&#34;,&#34;);
+  
+      const payload: ZoomIMMessagePayload = {
+        message,
+        at_items: [{
+          at_contact: &#39;max.test.zoom@gmail.com&#39;,
+          at_type: 1,
+          start_position: 15,
+          end_position: 20,
+        }
+          
+        ],
+        rich_text: [
+          {
+            start_position: 0,
+            end_position: 5,
+            format_type: &#34;Paragraph&#34;,
+            format_attr: &#34;h1&#34;,
+          },
+        ],
+        file_ids: [],
+        reply_main_message_id: &#34;&#34;,
+        to_contact,
+        interactive_cards: [
+          {
+            card_json: JSON.stringify({
+              content: {
+                settings: { form: true },
+                head: {
+                  text: &#34;New Task Assigned&#34;,
+                  sub_head: { text: &#34;I am a sub head text&#34; },
+                },
+                body: [
+                  {
+                    type: &#34;attachments&#34;,
+                    resource_url: &#34;https://zoom.us&#34;,
+                    img_url:
+                      &#34;https://d24cgw3uvb9a9h.cloudfront.net/static/93516/image/new/ZoomLogo.png&#34;,
+                    information: {
+                      title: { text: &#34;I am an attachment title&#34; },
+                      description: { text: &#34;I am an attachment description&#34; },
+                    },
+                  },
+                  {
+                    type: &#34;actions&#34;,
+                    items: [
+                      { text: &#34;Open&#34;, value: &#34;open&#34;, style: &#34;Primary&#34; },
+                      { text: &#34;Edit&#34;, value: &#34;edit&#34;, style: &#34;Default&#34; },
+                    ],
+                  },
+                ],
+              },
+            }),
+          },
+        ],
+      };
+  
+      // Send the Zoom IM message.
+      await sendZoomIMMessage(accessToken, payload);
+  
+      // Reset the form, close the dialog, and refresh the route.
+      reset();
+      setOpen(false);
+      router.refresh();
+    } catch (err) {
+      console.error(&#34;Error in submitHandler:&#34;, err);
+    }
+  };
+  
+
+  return (
+    &lt;div className=&#34;w-full bg-white dark:bg-background text-black dark:text-white shadow-md p-4 rounded-lg space-y-4 border border-gray-300 dark:border-border&#34;&gt;
+      &lt;Dialog open={open} onOpenChange={setOpen}&gt;
+        &lt;DialogContent className=&#34;sm:max-w-md&#34;&gt;
+          &lt;form onSubmit={handleSubmit(submitHandler)}&gt;
+            &lt;DialogHeader&gt;
+              &lt;DialogTitle&gt;Add Task&lt;/DialogTitle&gt;
+              &lt;DialogDescription&gt;
+                Fill in the details to create a new task.
+              &lt;/DialogDescription&gt;
+            &lt;/DialogHeader&gt;
+
+            &lt;div className=&#34;flex flex-col gap-4 mt-4&#34;&gt;
+              {/* Task Title */}
+              &lt;div&gt;
+                &lt;label htmlFor=&#34;title&#34; className=&#34;block text-sm font-medium text-gray-700&#34;&gt;
+                  Task Title
+                &lt;/label&gt;
+                &lt;Input
+                  id=&#34;title&#34;
+                  placeholder=&#34;Enter task title&#34;
+                  {...register(&#34;title&#34;, { required: &#34;Task title is required&#34; })}
+                /&gt;
+                {errors.title &amp;&amp; (
+                  &lt;p className=&#34;text-red-500 text-sm&#34;&gt;{errors.title.message}&lt;/p&gt;
+                )}
+              &lt;/div&gt;
+
+              {/* Task Description */}
+              &lt;div&gt;
+                &lt;label htmlFor=&#34;description&#34; className=&#34;block text-sm font-medium text-gray-700&#34;&gt;
+                  Task Description
+                &lt;/label&gt;
+                &lt;textarea
+                  id=&#34;description&#34;
+                  placeholder=&#34;Enter task description&#34;
+                  {...register(&#34;description&#34;, { required: &#34;Task description is required&#34; })}
+                  className=&#34;w-full border border-gray-300 dark:border-gray-600 p-2 rounded-md outline-none focus:ring-2 ring-blue-500 text-gray-900 dark:text-gray-100&#34;
+                &gt;&lt;/textarea&gt;
+                {errors.description &amp;&amp; (
+                  &lt;p className=&#34;text-red-500 text-sm&#34;&gt;{errors.description.message}&lt;/p&gt;
+                )}
+              &lt;/div&gt;
+
+              {/* Assignee Selection */}
+              &lt;div&gt;
+                &lt;label htmlFor=&#34;assigned_users&#34; className=&#34;block text-sm font-medium text-gray-700&#34;&gt;
+                  Assign Task (Select one or more)
+                &lt;/label&gt;
+                &lt;Controller
+                  control={control}
+                  name=&#34;assigned_users&#34;
+                  rules=&#123;&#123; required: &#34;Please assign at least one user&#34; }}
+                  render={({ field: { onChange, value } }) =&gt; (
+                    &lt;AssigneeSelector
+                      options={availableUsers.map((u) =&gt; ({
+                        value: u.id,
+                        label: `${u.first_name} ${u.last_name}`,
+                      }))}
+                      value={value || []}
+                      onChange={onChange}
+                    /&gt;
+                  )}
+                /&gt;
+                {errors.assigned_users &amp;&amp; (
+                  &lt;p className=&#34;text-red-500 text-sm&#34;&gt;{errors.assigned_users.message}&lt;/p&gt;
+                )}
+              &lt;/div&gt;
+
+              {/* Task Stage and Date */}
+              &lt;div className=&#34;flex gap-4&#34;&gt;
+                &lt;div className=&#34;w-full&#34;&gt;
+                  &lt;label htmlFor=&#34;stage&#34; className=&#34;block text-sm font-medium text-gray-700&#34;&gt;
+                    Task Stage
+                  &lt;/label&gt;
+                  &lt;Select onValueChange={setStage} defaultValue={stage}&gt;
+                    &lt;SelectTrigger&gt;
+                      &lt;SelectValue placeholder=&#34;Select stage&#34; /&gt;
+                    &lt;/SelectTrigger&gt;
+                    &lt;SelectContent&gt;
+                      {LISTS.map((list) =&gt; (
+                        &lt;SelectItem key={list} value={list}&gt;
+                          {list.toUpperCase()}
+                        &lt;/SelectItem&gt;
+                      ))}
+                    &lt;/SelectContent&gt;
+                  &lt;/Select&gt;
+                &lt;/div&gt;
+
+                &lt;div className=&#34;w-full&#34;&gt;
+                  &lt;label htmlFor=&#34;date&#34; className=&#34;block text-sm font-medium text-gray-700&#34;&gt;
+                    Task Date
+                  &lt;/label&gt;
+                  &lt;Input
+                    type=&#34;date&#34;
+                    id=&#34;date&#34;
+                    {...register(&#34;date&#34;, { required: &#34;Task date is required&#34; })}
+                  /&gt;
+                  {errors.date &amp;&amp; (
+                    &lt;p className=&#34;text-red-500 text-sm&#34;&gt;{errors.date.message}&lt;/p&gt;
+                  )}
+                &lt;/div&gt;
+              &lt;/div&gt;
+
+              {/* Priority */}
+              &lt;div className=&#34;flex gap-4&#34;&gt;
+                &lt;div className=&#34;w-full&#34;&gt;
+                  &lt;label htmlFor=&#34;priority&#34; className=&#34;block text-sm font-medium text-gray-700&#34;&gt;
+                    Priority Level
+                  &lt;/label&gt;
+                  &lt;Select onValueChange={setPriority} defaultValue={priority}&gt;
+                    &lt;SelectTrigger&gt;
+                      &lt;SelectValue placeholder=&#34;Select priority&#34; /&gt;
+                    &lt;/SelectTrigger&gt;
+                    &lt;SelectContent&gt;
+                      {PRIORITIES.map((level) =&gt; (
+                        &lt;SelectItem key={level} value={level}&gt;
+                          {level.toUpperCase()}
+                        &lt;/SelectItem&gt;
+                      ))}
+                    &lt;/SelectContent&gt;
+                  &lt;/Select&gt;
+                &lt;/div&gt;
+              &lt;/div&gt;
+
+              {/* Submit and Cancel Buttons */}
+              &lt;div className=&#34;flex justify-end gap-4 mt-4&#34;&gt;
+                &lt;Button type=&#34;submit&#34; className=&#34;bg-blue-600 px-8 text-sm font-semibold text-white hover:bg-blue-700&#34;&gt;
+                  Submit
+                &lt;/Button&gt;
+                &lt;Button
+                  type=&#34;button&#34;
+                  variant=&#34;secondary&#34;
+                  onClick={() =&gt; setOpen(false)}
+                  className=&#34;px-5 text-sm font-semibold&#34;
+                &gt;
+                  Cancel
+                &lt;/Button&gt;
+              &lt;/div&gt;
+            &lt;/div&gt;
+          &lt;/form&gt;
+        &lt;/DialogContent&gt;
+      &lt;/Dialog&gt;
+    &lt;/div&gt;
+  );
+};
+
+export default AddActivity;
+
+</code></pre>
+<h2 is-upgraded>Resources</h2>
+<ul>
+<li><a href="https://nextjs.org/docs/app/building-your-application/data-fetching/server-actions-and-mutations" target="_blank">Server Actions and Mutations</a></li>
+</ul>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Conclusion" duration="0">
+        <p>Congratulations! You&#39;ve learned how to integrate Team Chat with a Zoom App using Next.js. Here&#39;s what you used:</p>
+<h2 is-upgraded>Learn more</h2>
+<ul>
+<li><a href="https://developers.zoom.us/docs/zoom-apps/" target="_blank">Getting started with Zoom App</a></li>
+<li><a href="https://developers.zoom.us/docs/integrations/" target="_blank">Integrations (OAuth apps)</a></li>
+<li><a href="https://developers.zoom.us/docs/api/team-chat/" target="_blank">Zoom Team Chat API reference</a></li>
+</ul>
 
 
       </google-codelab-step>
