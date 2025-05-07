@@ -67,26 +67,6 @@
 
       </google-codelab-step>
     
-      <google-codelab-step label="Zoom Team Chat Authentication" duration="0">
-        <p>To interact with the Zoom Team Chat API, all requests to Zoom API endpoints must be authorized and authenticated. OAuth 2.0 enables your app to securely access Zoom APIs for users or accounts. Each API request must include an access_token bearer token. Zoom supports industry-standard OAuth 2.0 (RFC6749) flows for handling authorization and access tokens.</p>
-<p>Unlike chatbots where you request a token for each interaction, Team Chat requires careful token storage and security. Through the OAuth flow, the code in the redirect URL enables authorization_code OAuth flows for additional API endpoints. Your app can request, refresh, and revoke tokens based on its type and authentication method. Since tokens expire after a set time, they must be renewed or refreshed periodically.</p>
-<p>In this guide, you&#39;ll integrate the Zoom Team Chat API into a Next.js app that uses Supabase for authentication and data storage.</p>
-<p>By the end, you&#39;ll have:</p>
-<ul>
-<li>A working Zoom Team Chat integration</li>
-<li>A foundation for sending and customizing team chat messages</li>
-<li>Team chat server action functions ready to be reused across more advanced messaging features</li>
-</ul>
-<h2 is-upgraded>Resources</h2>
-<ul>
-<li><a href="https://developers.zoom.us/docs/team-chat/installation-and-authentication/" target="_blank">Team Chat: Installation and Authorize</a></li>
-<li><a href="https://developers.zoom.us/docs/integrations/oauth/" target="_blank">OAuth 2.0</a></li>
-<li><a href="https://developers.zoom.us/docs/integrations/end-user-auth/" target="_blank">End user authorization</a></li>
-</ul>
-
-
-      </google-codelab-step>
-    
       <google-codelab-step label="Project Setup" duration="0">
         <p>If you&#39;re starting from this step, let&#39;s first set up your development environment</p>
 <ol type="1">
@@ -104,7 +84,27 @@ git checkout step-2-chatbot-api
 npm run dev
 
 </code></pre>
-<p>Now, you have a Task Manager application built with Next.js that integrates with Supabase and Zoom Chatbot APIs..</p>
+<p>Now, you have a Task Manager application built with Next.js that integrates with Supabase and Zoom Chatbot APIs.</p>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Zoom Team Chat Authentication" duration="0">
+        <p>To interact with the Zoom Team Chat API, all requests to Zoom API endpoints must be authorized and authenticated. OAuth 2.0 enables your app to securely access Zoom APIs for users or accounts. Each API request must include an access_token bearer token. Zoom supports industry-standard OAuth 2.0 (RFC6749) flows for handling authorization and access tokens.</p>
+<p>Unlike chatbots where you request a token for each interaction, Team Chat requires careful token storage and security. Through the OAuth flow, the code in the redirect URL enables authorization_code OAuth flows for additional API endpoints. Your app can request, refresh, and revoke tokens based on its type and authentication method. Since tokens expire after a set time, they must be renewed or refreshed periodically.</p>
+<p>In this guide, you&#39;ll integrate the Zoom Team Chat API into a Next.js app that uses Supabase for authentication and data storage.</p>
+<p>By the end, you&#39;ll have:</p>
+<ul>
+<li>A working Zoom Team Chat integration</li>
+<li>A foundation for sending and customizing team chat messages</li>
+<li>Team chat server action functions ready to be reused across more advanced messaging features</li>
+</ul>
+<h2 is-upgraded>Resources</h2>
+<ul>
+<li><a href="https://developers.zoom.us/docs/team-chat/installation-and-authentication/" target="_blank">Team Chat: Installation and Authorize</a></li>
+<li><a href="https://developers.zoom.us/docs/integrations/oauth/" target="_blank">OAuth 2.0</a></li>
+<li><a href="https://developers.zoom.us/docs/integrations/end-user-auth/" target="_blank">End user authorization</a></li>
+</ul>
 
 
       </google-codelab-step>
