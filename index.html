@@ -47,7 +47,7 @@
     
       <google-codelab-step label="What you&#39;ll learn" duration="0">
         <p>✓ How to get Zoom Rest API token</p>
-<p>✓ How to send teamchat message to Zoom Client</p>
+<p>✓ How to send a direct teamchat message to Zoom Client</p>
 <p>✓ How to customized messages</p>
 <h2 is-upgraded>What you&#39;ll Need</h2>
 <ul>
@@ -55,7 +55,6 @@
 <li>Node.js</li>
 <li>Browser</li>
 <li>Code editor and terminal</li>
-<li>Zoom Developer Account for the creation and management of your Zoom App SDK</li>
 </ul>
 <h2 is-upgraded>Prerequisites</h2>
 <ul>
@@ -68,13 +67,15 @@
 
       </google-codelab-step>
     
-      <google-codelab-step label="Introduction" duration="0">
-        <p>In this guide, you&#39;ll integrate the Zoom Team Chat API into a Next.js app that uses Supabase for authication and data storage.</p>
+      <google-codelab-step label="Zoom Team Chat Authentication" duration="0">
+        <p>To interact with the Zoom Team Chat API, all requests to Zoom API endpoints must be authorized and authenticated. OAuth 2.0 enables your app to securely access Zoom APIs for users or accounts. Each API request must include an access_token bearer token. Zoom supports industry-standard OAuth 2.0 (RFC6749) flows for handling authorization and access tokens.</p>
+<p>Unlike chatbots where you request a token for each interaction, Team Chat requires careful token storage and security. Through the OAuth flow, the code in the redirect URL enables authorization_code OAuth flows for additional API endpoints. Your app can request, refresh, and revoke tokens based on its type and authentication method. Since tokens expire after a set time, they must be renewed or refreshed periodically.</p>
+<p>In this guide, you&#39;ll integrate the Zoom Team Chat API into a Next.js app that uses Supabase for authentication and data storage.</p>
 <p>By the end, you&#39;ll have:</p>
 <ul>
 <li>A working Zoom Team Chat integration</li>
-<li>A foundation for sending and customizing messages</li>
-<li>A server action function ready to be reused across more advanced messaging features</li>
+<li>A foundation for sending and customizing team chat messages</li>
+<li>Team chat server action functions ready to be reused across more advanced messaging features</li>
 </ul>
 <h2 is-upgraded>Project Setup</h2>
 <p>If you&#39;re starting from this step, let&#39;s first set up your development environment</p>
