@@ -91,7 +91,7 @@ npm run dev
 
       </google-codelab-step>
     
-      <google-codelab-step label="Zoom Team Chat Authentication" duration="0">
+      <google-codelab-step label="Overview: Zoom Team Chat Authentication" duration="0">
         <p>To interact with the Zoom Team Chat API, all requests to Zoom API endpoints must be authorized and authenticated. OAuth 2.0 enables your app to securely access Zoom APIs for users or accounts. Each API request must include an access_token bearer token. Zoom supports industry-standard OAuth 2.0 (RFC6749) flows for handling authorization and access tokens.</p>
 <p>Unlike chatbots where you request a token for each interaction, Team Chat requires careful token storage and security. Through the OAuth flow, the code in the redirect URL enables authorization_code OAuth flows for additional API endpoints. Your app can request, refresh, and revoke tokens based on its type and authentication method. Since tokens expire after a set time, they must be renewed or refreshed periodically.</p>
 <p>In this guide, you&#39;ll integrate the Zoom Team Chat API into a Next.js app that uses Supabase for authentication and data storage.</p>
@@ -114,6 +114,7 @@ npm run dev
       <google-codelab-step label="Creating Zoom Team Chat Server Actions" duration="0">
         <p>This section covers how to create server actions to interact with the Zoom Team Chat API.</p>
 <h2 is-upgraded>Step 1: Create the Team Chat API Helper</h2>
+<p>In this section, you&#39;ll set up</p>
 <p>Create a new file: <code>app/lib/teamchat.ts</code></p>
 <p>Paste in the following starter code:</p>
 <pre><code language="language-javascript" class="language-javascript">&#39;use server&#39;;
@@ -291,7 +292,10 @@ export async function getuserChannels(accessToken: string) {
       </google-codelab-step>
     
       <google-codelab-step label="User Contact page" duration="0">
-        <p>Create a new file:  <code>app/users-server/page.tsx</code></p>
+        <p>In this section, you will create a  user contact page that displays contact information by calling a server-side function that uses the Zoom Team Chat REST API. Since Zoom apps are user-based, you must use the user contact API to retrieve a user&#39;s contact list for direct messaging or follow-up actions.</p>
+<h2 is-upgraded>Step 2: Create User Contact component.</h2>
+<p>Create a new file and add the following code.</p>
+<p><strong>File path:  </strong><code>app/users-server/page.tsx</code></p>
 <p>Paste in the following starter code:</p>
 <pre><code language="language-javascript" class="language-javascript">import { getuserContacts, getuserChannels } from &#34;@/app/lib/teamchat&#34;;
 import { createServerClient } from &#34;@supabase/ssr&#34;;
@@ -412,7 +416,10 @@ export default async function UsersServer() {
       </google-codelab-step>
     
       <google-codelab-step label="Edit Task Component" duration="0">
-        <p>Update the Edit Task component file: <code>components/taskmanger/edit-task.tsx</code></p>
+        <p>In this section, you will update the edit task component to send a direct message to the user when a task assigned to them is updated. This component uses the Zoom Team Chat REST API to send messages as the user, rather than from a chatbot.</p>
+<h2 is-upgraded>Step 3: Update the edit task component</h2>
+<p>Update the component with the following code.</p>
+<p><strong>File Path: </strong><code>components/taskmanger/edit-task.tsx</code></p>
 <p>Paste in the following starter code:</p>
 <pre><code language="language-javascript" class="language-javascript">&#39;use client&#39;;
 
